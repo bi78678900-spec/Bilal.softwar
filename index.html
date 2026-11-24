@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>App World</title>
+<style>
+:root{--bg:#f5f6fa;--cd:#fff;--tx:#1c1e26;--mu:#6b7280;--pr:#4f46e5;--bd:#e5e7eb}
+[data-theme=dark]{--bg:#0f1117;--cd:#1a1d27;--tx:#eceef4;--mu:#9aa1b2;--bd:#2a2e3b}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+a{color:inherit;text-decoration:none}
+header{position:sticky;top:0;z-index:5;background:var(--cd);border-bottom:1px solid var(--bd);display:flex;gap:8px;align-items:center;padding:10px 14px}
+.logo{font-weight:800;font-size:20px;color:var(--pr)}
+header input{flex:1;min-width:0}
+input,select,textarea,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px}
+button,.btn{background:var(--pr);color:#fff;border:0;cursor:pointer;padding:10px 16px;border-radius:10px;display:inline-block}
+.btn.sm{padding:6px 10px;font-size:13px}.btn.red{background:#dc2626}.btn.ghost{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+main{max-width:980px;margin:0 auto;padding:14px}
+h2{display:flex;justify-content:space-between;align-items:center;font-size:18px;margin:22px 0 10px}
+h2 a{font-size:14px;color:var(--pr)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.chip{padding:7px 14px;border-radius:99px;border:1px solid var(--bd);background:var(--cd);font-size:14px}
+.chip.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center}
+.card img,.det img{width:72px;height:72px;border-radius:16px;object-fit:cover;background:var(--bd)}
+.card b{font-size:14px;word-break:break-word}small{color:var(--mu)}
+.pg{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+.pg button{padding:7px 12px}.pg .on{background:var(--pr);color:#fff}.pg :not(.on){background:var(--cd);color:var(--tx)}
+.det{background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:18px}
+.det .top{display:flex;gap:14px;align-items:center;margin-bottom:12px}.det img{width:96px;height:96px}
+.det p{white-space:pre-wrap;line-height:1.6}
+form.f{display:grid;gap:10px;background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:16px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:10px;margin-bottom:8px}
+.row div:first-child{min-width:0;word-break:break-word}.acts{display:flex;gap:6px;flex-shrink:0}
+.msg{color:var(--mu);margin:4px 0}.empty{text-align:center;color:var(--mu);padding:30px}
+footer{text-align:center;color:var(--mu);font-size:12px;padding:24px 14px}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="#">App World</a>
+  <input id="q" type="search" placeholder="ऐप खोजें…">
+  <button id="th" class="ghost" aria-label="theme">🌓</button>
+</header>
+<main id="app"></main>
+<footer>सिर्फ़ फ़्री, ओपन-सोर्स या अपनी बनाई ऐप्स। · <a href="#admin">Admin</a></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// ===== यहाँ अपनी Supabase की दो चीज़ें डालें =====
+const SUPABASE_URL = 'https://klptlloznbgpshmxvmkg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ePE0H0oC1AOWoItQ5LPvLg_eZfWoS-i';
+// =================================================
+const PER = 8, CATS = ['Games', 'Social Media', 'Entertainment', 'Tools'];
+const PH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" fill="#4f46e5"/><text x="48" y="62" font-size="44" text-anchor="middle" fill="#fff">A</text></svg>');
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s), app = $('#app');
+const st = { q: '', cat: '', page: 1 };
+let rows = {};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const card = a => `<a class="card" href="#app/${a.id}"><img src="${esc(a.icon_url || PH)}" alt="" loading="lazy"><b>${esc(a.name)}</b><small>${esc(a.category)} · v${esc(a.version)}</small><small>⬇ ${a.downloads}</small></a>`;
+const chips = () => `<div class="chips"><a class="chip ${st.cat ? '' : 'on'}" href="#all/new" data-c="">सभी</a>${CATS.map(c => `<a class="chip ${st.cat == c ? 'on' : ''}" href="#all/new" data-c="${c}">${c}</a>`).join('')}</div>`;
+
+// ---------- theme ----------
+try { document.documentElement.dataset.theme = localStorage.getItem('aw-theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light'); } catch (e) {}
+$('#th').onclick = () => { const t = document.documentElement.dataset.theme == 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = t; try { localStorage.setItem('aw-theme', t); } catch (e) {} };
+
+// ---------- data ----------
+async function fetchApps({ sort = 'new', page = 1, per = PER, q = '', cat = '' }) {
+  let r = sb.from('apps').select('*', { count: 'exact' });
+  q = q.replace(/[,()%*]/g, ' ').trim();
+  if (q) r = r.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+  if (cat) r = r.eq('category', cat);
+  r = r.order(sort == 'popular' ? 'downloads' : 'created_at', { ascending: false }).range((page - 1) * per, page * per - 1);
+  const { data, count, error } = await r;
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+const fail = e => { app.innerHTML = `<div class="empty">⚠️ ${esc(e.message || e)}<br><small>Supabase की सेटिंग जाँचिए।</small></div>`; };
+
+// ---------- pages ----------
+async function home() {
+  st.q = ''; st.cat = ''; $('#q').value = '';
+  app.innerHTML = chips() + '<h2>🆕 नई ऐप्स <a href="#all/new">और देखें →</a></h2><div class="grid" id="n"></div><h2>🔥 पॉपुलर <a href="#all/popular">और देखें →</a></h2><div class="grid" id="p"></div>';
+  bindChips();
+  try {
+    const [n, p] = await Promise.all([fetchApps({ sort: 'new', per: 4 }), fetchApps({ sort: 'popular', per: 4 })]);
+    $('#n').innerHTML = n.data.map(card).join('') || '<div class="empty">अभी कोई ऐप नहीं</div>';
+    $('#p').innerHTML = p.data.map(card).join('') || '<div class="empty">अभी कोई ऐप नहीं</div>';
+  } catch (e) { fail(e); }
+}
+function bindChips() { document.querySelectorAll('.chip').forEach(c => c.onclick = () => { st.cat = c.dataset.c; st.page = 1; }); }
+
+async function listView(sort) {
+  sort = sort == 'popular' ? 'popular' : 'new';
+  app.innerHTML = chips() + `<h2>${sort == 'popular' ? '🔥 पॉपुलर' : '🆕 नई'} ऐप्स ${st.q ? '— “' + esc(st.q) + '”' : ''}<a href="#all/${sort == 'popular' ? 'new' : 'popular'}">${sort == 'popular' ? 'नई देखें' : 'पॉपुलर देखें'}</a></h2><div class="grid" id="g"></div><div class="pg" id="pg"></div>`;
+  bindChips();
+  try {
+    const { data, count } = await fetchApps({ sort, page: st.page, q: st.q, cat: st.cat });
+    $('#g').innerHTML = data.map(card).join('') || '<div class="empty" style="grid-column:1/-1">कुछ नहीं मिला</div>';
+    const pages = Math.ceil(count / PER);
+    $('#pg').innerHTML = pages > 1 ? Array.from({ length: pages }, (_, i) => `<button class="${i + 1 == st.page ? 'on' : ''}" data-p="${i + 1}">${i + 1}</button>`).join('') : '';
+    document.querySelectorAll('#pg button').forEach(b => b.onclick = () => { st.page = +b.dataset.p; listView(sort); scrollTo(0, 0); });
+  } catch (e) { fail(e); }
+}
+
+async function detail(id) {
+  const { data: a, error } = await sb.from('apps').select('*').eq('id', id).single();
+  if (error || !a) return fail('ऐप नहीं मिली');
+  app.innerHTML = `<div class="det"><div class="top"><img src="${esc(a.icon_url || PH)}" alt=""><div><h1 style="margin:0">${esc(a.name)}</h1><small>${esc(a.category)} · v${esc(a.version)} · ${esc(a.size)} · ⬇ ${a.downloads}</small></div></div><p>${esc(a.description)}</p><a class="btn" id="dl" href="${esc(a.apk_url)}" rel="noopener">⬇ डाउनलोड करें</a> <a class="btn ghost" href="#">← वापस</a></div>`;
+  $('#dl').onclick = () => { sb.rpc('bump', { app_id: a.id }); };
+}
+
+// ---------- admin ----------
+async function admin() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    app.innerHTML = `<form class="f" id="lf" style="max-width:380px;margin:auto"><h2 style="margin:0">Admin Login</h2><input id="em" type="email" placeholder="Email" required><input id="pw" type="password" placeholder="Password" required><button>Login</button><div class="msg" id="msg"></div></form>`;
+    $('#lf').onsubmit = async e => {
+      e.preventDefault();
+      const { error } = await sb.auth.signInWithPassword({ email: $('#em').value, password: $('#pw').value });
+      error ? $('#msg').textContent = 'गलत ईमेल या पासवर्ड' : admin();
+    };
+    return;
+  }
+  app.innerHTML = `<h2>Admin Dashboard <button class="btn sm ghost" id="lo">Logout</button></h2>
+  <form class="f" id="af"><b id="ft">नई ऐप जोड़ें</b><input type="hidden" id="eid">
+   <input id="title" placeholder="ऐप का नाम" required>
+   <div style="display:flex;gap:10px"><input id="ver" placeholder="Version (1.0)" style="flex:1"><select id="cat" style="flex:1">${CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
+   <textarea id="desc" rows="4" placeholder="ऐप के बारे में"></textarea>
+   <label><small>आइकन (फ़ोटो)</small><br><input id="icon" type="file" accept="image/*"></label>
+   <label><small>APK फ़ाइल (Supabase फ़्री में 50MB तक)</small><br><input id="apk" type="file" accept=".apk"></label>
+   <input id="link" type="url" placeholder="या APK का सीधा डाउनलोड लिंक (बड़ी फ़ाइल के लिए)">
+   <small>सिर्फ़ वही ऐप डालें जो आपकी अपनी हो या फ़्री/ओपन-सोर्स हो।</small>
+   <div style="display:flex;gap:8px"><button id="sv">Save</button><button type="button" class="ghost" id="cn" style="color:var(--tx)">Cancel</button></div><div class="msg" id="msg"></div></form><div id="lst"></div>`;
+  $('#lo').onclick = async () => { await sb.auth.signOut(); admin(); };
+  $('#cn').onclick = () => admin();
+  $('#af').onsubmit = save;
+  loadList();
+}
+async function loadList() {
+  const { data, error } = await sb.from('apps').select('*').order('created_at', { ascending: false });
+  if (error) return fail(error);
+  rows = Object.fromEntries(data.map(a => [a.id, a]));
+  $('#lst').innerHTML = data.map(a => `<div class="row"><div><b>${esc(a.name)}</b><br><small>${esc(a.category)} · v${esc(a.version)} · ⬇ ${a.downloads}</small></div><div class="acts"><button class="btn sm" data-e="${a.id}">Edit</button><button class="btn sm red" data-d="${a.id}">Delete</button></div></div>`).join('') || '<div class="empty">कोई ऐप नहीं</div>';
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const a = rows[b.dataset.e]; $('#eid').value = a.id; $('#title').value = a.name; $('#ver').value = a.version; $('#cat').value = a.category; $('#desc').value = a.description; $('#link').value = ''; $('#ft').textContent = 'ऐप बदलें: ' + a.name; scrollTo(0, 0); });
+  document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => del(b.dataset.d));
+}
+async function up(file, dir) {
+  const p = `${dir}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`;
+  const { error } = await sb.storage.from('files').upload(p, file);
+  if (error) throw error;
+  return sb.storage.from('files').getPublicUrl(p).data.publicUrl;
+}
+async function save(e) {
+  e.preventDefault();
+  const m = $('#msg'), id = $('#eid').value, apk = $('#apk').files[0], icon = $('#icon').files[0], link = $('#link').value.trim();
+  m.textContent = 'सेव हो रहा है… (बड़ी फ़ाइल में समय लगेगा)'; $('#sv').disabled = true;
+  try {
+    const r = { name: $('#title').value.trim(), version: $('#ver').value.trim() || '1.0', category: $('#cat').value, description: $('#desc').value.trim() };
+    if (apk) { r.apk_url = await up(apk, 'apk'); r.size = (apk.size / 1048576).toFixed(1) + ' MB'; }
+    else if (link) { r.apk_url = link; r.size = ''; }
+    if (icon) r.icon_url = await up(icon, 'icon');
+    if (!id && !r.apk_url) throw new Error('APK फ़ाइल या लिंक ज़रूरी है');
+    const { error } = id ? await sb.from('apps').update(r).eq('id', id) : await sb.from('apps').insert(r);
+    if (error) throw error;
+    admin();
+  } catch (err) { m.textContent = '❌ ' + (err.message || err); $('#sv').disabled = false; }
+}
+async function del(id) {
+  const a = rows[id];
+  if (!confirm(`"${a.name}" हटाएँ?`)) return;
+  const paths = [a.apk_url, a.icon_url].map(u => (u || '').split('/files/')[1]).filter(Boolean);
+  if (paths.length) await sb.storage.from('files').remove(paths);
+  const { error } = await sb.from('apps').delete().eq('id', id);
+  error ? alert(error.message) : loadList();
+}
+
+// ---------- router ----------
+$('#q').addEventListener('keydown', e => { if (e.key == 'Enter') { st.q = e.target.value; st.page = 1; location.hash == '#all/new' ? route() : location.hash = '#all/new'; } });
+function route() {
+  const h = location.hash.slice(1).split('/');
+  if (h[0] == 'app') return detail(h[1]);
+  if (h[0] == 'all') return listView(h[1]);
+  if (h[0] == 'admin') return admin();
+  home();
+}
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
